@@ -1,12 +1,15 @@
 package br.mackenzie;
 
-import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Rectangle;
 
 public class LoopObstacle {
 
-    // posição do loop
+    // posição e tamanho (baseY = parte de baixo do loop)
     private float centerX;
     private float baseY;
     private float radius;
@@ -14,10 +17,12 @@ public class LoopObstacle {
     // física mínima pra passar
     private float requiredSpeed;
 
-    // região "de entrada" por onde o player tenta entrar no loop
-    private Rectangle entryZone = new Rectangle();
-    // ponto de saída (lado direito do loop)
-    private float exitX;
+    private Texture texture;
+
+    // zonas de interação
+    private final Rectangle entryZone = new Rectangle(); // boca esquerda
+    private float exitX;                                  // boca direita (x)
+    private float entryCooldown = 0f;                     // evita “multi-trigger” (segundos)
 
     public LoopObstacle(float centerX, float baseY, float radius, float requiredSpeed) {
         this.centerX = centerX;
@@ -25,61 +30,86 @@ public class LoopObstacle {
         this.radius = radius;
         this.requiredSpeed = requiredSpeed;
 
-        // zona de entrada: um retângulo pequeno na esquerda inferior do loop
-        float entryWidth = 20f;
-        float entryHeight = 40f;
-        entryZone.set(centerX - radius - entryWidth, baseY, entryWidth, entryHeight);
-
-        // saída: lado direito inferior do loop
-        this.exitX = centerX + radius + 5f;
+        texture = new Texture(Gdx.files.internal("loopObstacle2.png"));
+        recomputeZones();
     }
 
-    /**
-     * Checa se o player encostou na entrada do loop.
-     * - Se sim e velocidade suficiente -> passa pro outro lado.
-     * - Se não -> 'rebate' o player pra trás.
-     */
-    public void checkAndResolve(Player player) {
-        if (player.getBounds().overlaps(entryZone)) {
+    /** Recalcula a boca de entrada/saída quando mudar posição/raio. */
+    private void recomputeZones() {
+        // largura/altura da boca de entrada (esquerda, parte de baixo)
+        float entryWidth  = 30f;
+        float entryHeight = Math.max(40f, radius * 0.65f); // altura proporcional ao loop
 
-            float speed = Math.abs(player.getVelX());
+        // posiciona a boca encostada na lateral externa do loop
+        entryZone.set(centerX - radius - entryWidth, baseY, entryWidth, entryHeight);
 
-            if (speed >= requiredSpeed) {
-                // PASSOU
-                // Coloca o player do outro lado do loop
-                float newX = exitX;
-                player.setPosition(newX, player.getY());
+        // X da boca direita (um pouco à frente para evitar re-colisão)
+        exitX = centerX + radius + 6f;
+    }
 
-                // mantém velocidade (ele sai "voando" pra direita)
-                // se quiser dar um boost extra, pode adicionar algo aqui.
-            } else {
-                // FALHOU
-                // empurra o player de volta um pouco pra esquerda e tira a velocidade
-                float pushBack = 40f;
-                float newX = player.getX() - pushBack;
-                player.setPosition(newX, player.getY());
+    /** Chame uma vez por frame. */
+    public void checkAndResolve(Player player, float dt) {
+        // reseta cooldown com o tempo
+        if (entryCooldown > 0f) entryCooldown -= dt;
 
-                // desacelera forte
-                player.setVelX(player.getVelX() * 0.3f);
+        // 1) Se não está sobrepondo a boca de entrada, nada a fazer
+        if (!player.getBounds().overlaps(entryZone)) return;
+
+        // 2) Evita múltiplos triggers no mesmo contato
+        if (entryCooldown > 0f) return;
+
+        // 3) Só vale se estiver vindo DA ESQUERDA para a DIREITA
+        if (player.getVelX() <= 0f) return;
+
+        float speed = player.getVelX(); // já sabemos que > 0 aqui
+
+        if (speed >= requiredSpeed) {
+            // PASSOU: teleporta pra fora da boca direita e garante que não re-colida
+            float newX = exitX + player.getWidth() + 2f; // joga um pouco além
+            player.setPosition(newX, player.getY());
+
+            // mantém/garante velocidade mínima de saída (opcional)
+            if (player.getVelX() < requiredSpeed * 0.5f) {
+                player.setVelX(requiredSpeed * 0.5f);
             }
+
+            entryCooldown = 0.15f; // 150 ms de respiro
+        } else {
+            // FALHOU: empurra para a esquerda e zera/derruba velocidade
+            float pushBack = 40f;
+            float newX = entryZone.x - player.getWidth() - 2f;
+            player.setPosition(newX, player.getY());
+            player.setVelX(0f); // ou *= 0.3f
+
+            entryCooldown = 0.15f;
         }
     }
 
-    public void draw(ShapeRenderer renderer) {
-        // corpo do loop (um círculo)
-        renderer.setColor(Color.GOLD);
-        renderer.circle(centerX, baseY + radius, radius);
-
-        // zona de entrada (debug visual)
-        renderer.setColor(Color.RED);
-        renderer.rect(entryZone.x, entryZone.y, entryZone.width, entryZone.height);
-
-        // zona de saída (debug)
-        renderer.setColor(Color.GREEN);
-        renderer.rect(exitX, baseY, 10f, 40f);
+    public void draw(SpriteBatch batch) {
+        float size = radius * 2f;
+        batch.draw(texture, centerX - radius, baseY, size, size);
     }
 
-    public float getRequiredSpeed() {
-        return requiredSpeed;
+    // --- Debug opcional (mostra boca de entrada) ---
+    public void drawDebug(ShapeRenderer renderer) {
+        renderer.setColor(Color.RED);
+        renderer.rect(entryZone.x, entryZone.y, entryZone.width, entryZone.height);
+    }
+
+    public float getRequiredSpeed() { return requiredSpeed; }
+
+    public void setPosition(float centerX, float baseY) {
+        this.centerX = centerX;
+        this.baseY = baseY;
+        recomputeZones();
+    }
+
+    public void setRadius(float radius) {
+        this.radius = radius;
+        recomputeZones();
+    }
+
+    public void dispose() {
+        if (texture != null) texture.dispose();
     }
 }

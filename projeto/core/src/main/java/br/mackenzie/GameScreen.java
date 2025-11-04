@@ -5,18 +5,24 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
 /**
- * Fase 1: player anda pra frente e pra trás, pega embalo e tenta atravessar o loop.
+ * Fase 1: player anda pra frente e pra trás, pega embalo e tenta atravessar o
+ * loop.
  */
 public class GameScreen implements Screen {
 
     // Mundo "2D lateral":
-    public static final float WORLD_WIDTH = 800f;
-    public static final float WORLD_HEIGHT = 450f;
+    public static final float WORLD_WIDTH = 1280f;
+    public static final float WORLD_HEIGHT = 720f;
+
+    private Texture backgroundTexture;
+    private SpriteBatch batch;
 
     private final MyGame game;
     private final Viewport viewport;
@@ -35,28 +41,32 @@ public class GameScreen implements Screen {
 
         // cria o jogador
         this.player = new Player(
-            100f,                  // posição inicial X
-            80f,                   // posição inicial Y (chão)
-            40f, 40f               // tamanho
+                150f, // posição inicial X
+                150f, // posição inicial Y (chão)
+                100f, 100f // tamanho
         );
 
         // cria um loop a frente
         this.loopObstacle = new LoopObstacle(
-            400f,      // centro X do círculo
-            100f,      // base Y do círculo (onde o player entra)
-            60f,       // raio
-            250f       // velocidade mínima necessária pra atravessar
+                700f, // centro X do círculo
+                120f, // base Y do círculo (onde o player entra)
+                280f, // raio
+                250f // velocidade mínima necessária pra atravessar
         );
     }
 
     @Override
     public void show() {
         // nada especial por enquanto
+        backgroundTexture = new Texture(Gdx.files.internal("background.png"));
+        backgroundTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+
+        batch = new SpriteBatch();
     }
 
     @Override
     public void render(float delta) {
-        // --- INPUT DE DEBUG (ex: R pra resetar fase) ---
+        // --- INPUT DE DEBUG ---
         if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
             debugResetRequested = true;
         }
@@ -65,13 +75,9 @@ public class GameScreen implements Screen {
             debugResetRequested = false;
         }
 
-        // --- UPDATE LÓGICA ---
+        // --- UPDATE ---
         player.update(delta);
-
-        // checar interação player <-> looping
-        loopObstacle.checkAndResolve(player);
-
-        // manter player dentro do mundo (por enquanto não tem câmera, então prende)
+        loopObstacle.checkAndResolve(player, delta);
         player.clampX(0, WORLD_WIDTH);
 
         // --- DESENHO ---
@@ -79,29 +85,36 @@ public class GameScreen implements Screen {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         viewport.apply();
-        shapeRenderer.setProjectionMatrix(viewport.getCamera().combined);
 
+        // 1) BACKGROUND (SpriteBatch) — ocupa o mundo lógico inteiro
+        batch.setProjectionMatrix(viewport.getCamera().combined);
+        batch.begin();
+        batch.draw(
+                backgroundTexture,
+                0f, 0f,
+                viewport.getWorldWidth(), // ou WORLD_WIDTH
+                viewport.getWorldHeight() // ou WORLD_HEIGHT
+        );
+
+        loopObstacle.draw(batch);
+        player.draw(batch);
+        
+        batch.end();
+
+        // 2) GAMEPLAY (ShapeRenderer) por cima
+        shapeRenderer.setProjectionMatrix(viewport.getCamera().combined);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-        // desenha "chão"
-        shapeRenderer.setColor(Color.DARK_GRAY);
-        shapeRenderer.rect(0, 60, WORLD_WIDTH, 20);
-
-        // desenha o player
-        shapeRenderer.setColor(Color.SKY);
-        shapeRenderer.rect(player.getX(), player.getY(), player.getWidth(), player.getHeight());
-
-        // desenha o loop (obstáculo)
-        loopObstacle.draw(shapeRenderer);
 
         shapeRenderer.end();
 
-        // desenha overlay debug (velocidade)
+        // overlay debug (velocidade)
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
         shapeRenderer.setColor(Color.WHITE);
-        shapeRenderer.line(player.getX(), player.getY() + player.getHeight() + 10,
-                           player.getX() + player.getVelX() * 0.2f,
-                           player.getY() + player.getHeight() + 10);
+        shapeRenderer.line(
+                player.getX(), player.getY() + player.getHeight() + 10,
+                player.getX() + player.getVelX() * 0.2f,
+                player.getY() + player.getHeight() + 10);
         shapeRenderer.end();
     }
 
@@ -115,13 +128,16 @@ public class GameScreen implements Screen {
     }
 
     @Override
-    public void pause() { }
+    public void pause() {
+    }
 
     @Override
-    public void resume() { }
+    public void resume() {
+    }
 
     @Override
-    public void hide() { }
+    public void hide() {
+    }
 
     @Override
     public void dispose() {

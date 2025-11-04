@@ -2,18 +2,21 @@ package br.mackenzie;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.MathUtils;
 
 public class Player extends GameObject {
 
     // física horizontal
     private float velX = 0f;
-    private float accel = 600f;      // quão rápido acelera segurando a tecla
-    private float maxSpeed = 400f;   // velocidade máxima que pode atingir
-    private float friction = 500f;   // atrito quando não aperta nada
+    private float accel = 600f; // quão rápido acelera segurando a tecla
+    private float maxSpeed = 400f; // velocidade máxima que pode atingir
+    private float friction = 500f; // atrito quando não aperta nada
+    private Texture texture;
 
     // "chão" fixo
-    private final float groundY = 80f;
+    private final float groundY = 210f;
 
     public Player(float x, float y, float width, float height) {
         super(x, y, width, height);
@@ -33,10 +36,12 @@ public class Player extends GameObject {
             // sem input -> atrito freia
             if (velX > 0) {
                 velX -= friction * dt;
-                if (velX < 0) velX = 0;
+                if (velX < 0)
+                    velX = 0;
             } else if (velX < 0) {
                 velX += friction * dt;
-                if (velX > 0) velX = 0;
+                if (velX > 0)
+                    velX = 0;
             }
         }
 
@@ -47,11 +52,10 @@ public class Player extends GameObject {
         x += velX * dt;
 
         // mantém no chão (por enquanto não tem gravidade/pulo)
-        y = groundY;
+        y = Math.max(y, groundY);
 
         updateBounds();
     }
-
 
     public void clampX(float min, float max) {
         if (x < min) {
@@ -80,13 +84,23 @@ public class Player extends GameObject {
         this.velX = velX;
     }
 
-    
-    public void draw(SpriteBatch batch){
-        batch.draw(texture, x, y, width, hight);
+    public void draw(SpriteBatch batch) {
+        batch.draw(texture, x, y, width, height);
+    }
+
+    public void setPosition(float x, float y) {
+        this.x = x;
+        this.y = y;
+        updateBounds();
+    }
+
+    public void setSize(float width, float height) {
+        this.width = width;
+        this.height = height;
+        updateBounds();
     }
 
     @Override
-    public void dispose(){
-        texture.dispose
+    public void dispose() {
     }
 }
