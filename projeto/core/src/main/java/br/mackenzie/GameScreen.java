@@ -31,6 +31,8 @@ public class GameScreen implements Screen {
     private final Player player;
     private final LoopObstacle loopObstacle;
 
+    private BitmapFont font;
+
     // controle simples pra restart se quiser
     private boolean debugResetRequested = false;
 
@@ -60,6 +62,10 @@ public class GameScreen implements Screen {
         // nada especial por enquanto
         backgroundTexture = new Texture(Gdx.files.internal("background.png"));
         backgroundTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+
+        font = new BitmapFont();
+        font.getData().setScale(1.5f);
+        font.setColor(Color.YELLOW);
 
         batch = new SpriteBatch();
     }
@@ -98,6 +104,15 @@ public class GameScreen implements Screen {
 
         loopObstacle.draw(batch);
         player.draw(batch);
+
+        int speedDisplay = (int) Math.abs(player.getVelX() / 10);
+
+        font.draw(batch, "VELOCIDADE: " + speedDisplay + " km/h", 20, WORLD_HEIGHT - 20);
+        font.draw(batch, "Fase: 1", 20, WORLD_HEIGHT - 50);
+        
+        if (player.getX() > 1000) { // Exemplo de fim de fase
+        font.draw(batch, "Fase Completa!", WORLD_WIDTH/2 - 100, WORLD_HEIGHT/2);
+        }
         
         batch.end();
 
