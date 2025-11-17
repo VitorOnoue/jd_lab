@@ -24,37 +24,35 @@ public class Player extends GameObject {
     }
 
     public void update(float dt) {
-        // input esquerda/direita
-        boolean left = Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.A);
-        boolean right = Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.D);
+    // CONFIGURAÇÃO DA BIKE
+    float pedalPower = 150f; // Quanto de velocidade ganha por "pedalada" (toque)
+    float friction = 200f;   // O quão rápido a bike para se não pedalar
+    float maxSpeed = 600f;   // Velocidade máxima permitida
 
-        if (left && !right) {
-            velX -= accel * dt;
-        } else if (right && !left) {
-            velX += accel * dt;
-        } else {
-            // sem input -> atrito freia
-            if (velX > 0) {
-                velX -= friction * dt;
-                if (velX < 0)
-                    velX = 0;
-            } else if (velX < 0) {
-                velX += friction * dt;
-                if (velX > 0)
-                    velX = 0;
-            }
-        }
+    // 1. DETECTAR PEDALADA (Trocar "isKeyPressed" por "isKeyJustPressed")
+    // Usamos SPACE ou SETA PRA CIMA para simular o pedal
+    if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE) || Gdx.input.isKeyJustPressed(Input.Keys.UP)) {
+        velX += pedalPower;
+    }
 
-        // limita velocidade máxima
-        velX = MathUtils.clamp(velX, -maxSpeed, maxSpeed);
+    // 2. APLICAR ATRITO CONSTANTE (A bike sempre quer parar)
+    if (velX > 0) {
+        velX -= friction * dt;
+        if (velX < 0) velX = 0; // Não deixa ir para trás (negativo) sozinho
+    }
 
-        // aplica deslocamento
-        x += velX * dt;
+    // 3. LIMITAR VELOCIDADE MÁXIMA
+    if (velX > maxSpeed) {
+        velX = maxSpeed;
+    }
 
-        // mantém no chão (por enquanto não tem gravidade/pulo)
-        y = Math.max(y, groundY);
+    // 4. APLICAR MOVIMENTO
+    x += velX * dt;
 
-        updateBounds();
+    // 5. MANTER NO CHÃO
+    y = Math.max(y, 210f); // groundY fixo conforme seu código original
+
+    updateBounds();
     }
 
     public void clampX(float min, float max) {
