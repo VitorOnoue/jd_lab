@@ -6,18 +6,26 @@ import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.graphics.Pixmap;
+
 /**
- * Fase 1: player anda pra frente e pra trás, pega embalo e tenta atravessar o
- * loop.
+ * Fase 1: player anda pra frente e pra trás, pega embalo e tenta atravessar o loop.
+ * Agora com menu de pausa (Resume / Restart / Main Menu) e suporte a teclas.
  */
 public class GameScreen implements Screen {
 
-    // Mundo "2D lateral":
     public static final float WORLD_WIDTH = 1280f;
     public static final float WORLD_HEIGHT = 720f;
 
@@ -33,6 +41,11 @@ public class GameScreen implements Screen {
 
     private BitmapFont font;
     private int currentLevel;
+
+    // pause
+    private boolean paused = false;
+    private Stage pauseStage;
+    private Skin pauseSkin;
 
     // controle simples pra restart se quiser
     private boolean debugResetRequested = false;
@@ -50,24 +63,18 @@ public class GameScreen implements Screen {
                 100f, 100f // tamanho
         );
 
-        // LÓGICA DE DIFICULDADE PROGRESSIVA
-        // Nível 1: 250 velocidade necessária
-        // Nível 2: 300 velocidade necessária
-        // Nível 3: 350 velocidade necessária
         float difficulty = 250f + ((level - 1) * 50f);
 
-        // cria um loop a frente
         this.loopObstacle = new LoopObstacle(
-                700f, // centro X do círculo
-                120f, // base Y do círculo (onde o player entra)
-                280f, // raio
-                difficulty // velocidade mínima necessária pra atravessar
+                700f,
+                120f,
+                280f,
+                difficulty
         );
     }
 
     @Override
     public void show() {
-        // nada especial por enquanto
         backgroundTexture = new Texture(Gdx.files.internal("background.png"));
         backgroundTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
 
@@ -76,23 +83,85 @@ public class GameScreen implements Screen {
         font.setColor(Color.YELLOW);
 
         batch = new SpriteBatch();
+
+        // Cria a UI de pausa (Stage)
+        pauseStage = new Stage(new FitViewport(WORLD_WIDTH, WORLD_HEIGHT));
+        pauseSkin = createBasicSkin();
+
+        Table table = new Table();
+        table.setFillParent(true);
+        pauseStage.addActor(table);
+
+        TextButton resumeBtn = new TextButton("Retomar (P)", pauseSkin);
+        TextButton restartBtn = new TextButton("Reiniciar (R)", pauseSkin);
+        TextButton menuBtn = new TextButton("Menu Principal (M)", pauseSkin);
+
+        table.center();
+        table.add(resumeBtn).width(300).height(60).pad(8);
+        table.row();
+        table.add(restartBtn).width(300).height(60).pad(8);
+        table.row();
+        table.add(menuBtn).width(300).height(60).pad(8);
+
+        resumeBtn.addListener(new ChangeListener() {
+            @Override public void changed(ChangeEvent event, Actor actor) {
+                setPaused(false);
+            }
+        });
+        restartBtn.addListener(new ChangeListener() {
+            @Override public void changed(ChangeEvent event, Actor actor) {
+                restartLevel();
+            }
+        });
+        menuBtn.addListener(new ChangeListener() {
+            @Override public void changed(ChangeEvent event, Actor actor) {
+                goToMainMenu();
+            }
+        });
+
+        // inicialmente não recebe input do stage; só quando pausado chamamos setInputProcessor
     }
 
     @Override
     public void render(float delta) {
-        // --- INPUT DE DEBUG ---
+        // --- INPUT GLOBAIS ---
         if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
-            debugResetRequested = true;
+            // tecla R reinicia a fase (rápida)
+            restartLevel();
+            return;
         }
-        if (debugResetRequested) {
-            resetStage();
-            debugResetRequested = false;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.P)) {
+            // toggle pause
+            setPaused(!paused);
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.M)) {
+            // volta ao menu
+            goToMainMenu();
+            return;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            // ESC volta ao menu também
+            goToMainMenu();
+            return;
         }
 
-        // --- UPDATE ---
-        player.update(delta);
-        loopObstacle.checkAndResolve(player, delta);
-        player.clampX(0, WORLD_WIDTH);
+        // --- UPDATE (apenas se não estiver pausado) ---
+        if (!paused) {
+            player.update(delta);
+            loopObstacle.checkAndResolve(player, delta);
+            player.clampX(0, WORLD_WIDTH);
+
+            if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
+                debugResetRequested = true;
+            }
+            if (debugResetRequested) {
+                resetStage();
+                debugResetRequested = false;
+            }
+        } else {
+            // se pausado, atualiza o stage de pausa
+            pauseStage.act(delta);
+        }
 
         // --- DESENHO ---
         Gdx.gl.glClearColor(0f, 0f, 0.1f, 1f);
@@ -100,51 +169,39 @@ public class GameScreen implements Screen {
 
         viewport.apply();
 
-        // 1) BACKGROUND (SpriteBatch) — ocupa o mundo lógico inteiro
+        // SpriteBatch world
         batch.setProjectionMatrix(viewport.getCamera().combined);
         batch.begin();
-        batch.draw(
-                backgroundTexture,
-                0f, 0f,
-                viewport.getWorldWidth(), // ou WORLD_WIDTH
-                viewport.getWorldHeight() // ou WORLD_HEIGHT
-        );
-
+        batch.draw(backgroundTexture, 0f, 0f, viewport.getWorldWidth(), viewport.getWorldHeight());
         loopObstacle.draw(batch);
         player.draw(batch);
 
         int speedDisplay = (int) Math.abs(player.getVelX() / 10);
-
         font.draw(batch, "VELOCIDADE: " + speedDisplay + " km/h", 20, WORLD_HEIGHT - 20);
-        font.draw(batch, "Fase: 1", 20, WORLD_HEIGHT - 50);
-        
-        if (player.getX() > 1000) { // Exemplo de fim de fase
+        font.draw(batch, "Fase: " + currentLevel, 20, WORLD_HEIGHT - 50);
 
+        // Se terminou fase (exemplo)
+        if (player.getX() > 1000) {
             font.draw(batch, "FASE " + currentLevel + " COMPLETA!", WORLD_WIDTH/2 - 150, WORLD_HEIGHT/2 + 50);
             font.draw(batch, "Pressione ENTER para continuar", WORLD_WIDTH/2 - 150, WORLD_HEIGHT/2);
-        
+
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
                 if (currentLevel < 3) {
-                    // Carrega a próxima fase (aumenta o nível)
-                    game.setScreen(new GameScreen(game, currentLevel + 1)); 
+                    game.setScreen(new GameScreen(game, currentLevel + 1));
+                    dispose();
+                    return;
                 } else {
-                    // Se acabou a fase 3, volta para o Menu (zerou o jogo)
                     game.setScreen(new MenuScreen(game));
+                    dispose();
+                    return;
                 }
-                dispose(); // Limpa a fase atual
             }
         }
-        
+
         batch.end();
 
-        // 2) GAMEPLAY (ShapeRenderer) por cima
+        // 2) ShapeRenderer (overlays)
         shapeRenderer.setProjectionMatrix(viewport.getCamera().combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-
-
-        shapeRenderer.end();
-
-        // overlay debug (velocidade)
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
         shapeRenderer.setColor(Color.WHITE);
         shapeRenderer.line(
@@ -152,6 +209,43 @@ public class GameScreen implements Screen {
                 player.getX() + player.getVelX() * 0.2f,
                 player.getY() + player.getHeight() + 10);
         shapeRenderer.end();
+
+        // 3) Se pausado, desenha overlay escuro + stage de pause
+        if (paused) {
+            // um retângulo semi-transparente manual
+            Gdx.gl.glEnable(GL20.GL_BLEND);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(new Color(0f, 0f, 0f, 0.6f));
+            shapeRenderer.rect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+            shapeRenderer.end();
+            Gdx.gl.glDisable(GL20.GL_BLEND);
+
+            // desenha o stage de pause por cima
+            pauseStage.getViewport().apply();
+            pauseStage.draw();
+        }
+    }
+
+    private void setPaused(boolean pause) {
+        this.paused = pause;
+        if (paused) {
+            // direciona input pro stage para permitir clicar nos botões
+            Gdx.input.setInputProcessor(pauseStage);
+        } else {
+            // volta a forma simples de input (keyboard polling)
+            Gdx.input.setInputProcessor(null);
+        }
+    }
+
+    private void restartLevel() {
+        // recria a tela atual para garantir limpeza total dos objetos
+        game.setScreen(new GameScreen(game, currentLevel));
+        dispose();
+    }
+
+    private void goToMainMenu() {
+        game.setScreen(new MenuScreen(game));
+        dispose();
     }
 
     private void resetStage() {
@@ -161,19 +255,22 @@ public class GameScreen implements Screen {
     @Override
     public void resize(int width, int height) {
         viewport.update(width, height, true);
+        if (pauseStage != null) pauseStage.getViewport().update(width, height, true);
     }
 
     @Override
     public void pause() {
+        // opcional: se o app perder foco, pausamos o jogo
+        setPaused(true);
     }
 
     @Override
     public void resume() {
+        // não força retomada
     }
 
     @Override
-    public void hide() {
-    }
+    public void hide() {}
 
     @Override
     public void dispose() {
@@ -181,5 +278,30 @@ public class GameScreen implements Screen {
         if (batch != null) batch.dispose();
         if (font != null) font.dispose();
         if (backgroundTexture != null) backgroundTexture.dispose();
+        if (pauseStage != null) pauseStage.dispose();
+        if (pauseSkin != null) pauseSkin.dispose();
+    }
+
+    private Skin createBasicSkin() {
+        Skin skin = new Skin();
+        BitmapFont f = new BitmapFont();
+        f.getData().setScale(1.2f);
+        skin.add("default-font", f);
+
+        Pixmap pix = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        pix.setColor(1f, 1f, 1f, 1f);
+        pix.fill();
+        skin.add("white", new com.badlogic.gdx.graphics.Texture(pix));
+        pix.dispose();
+
+        com.badlogic.gdx.scenes.scene2d.ui.TextButton.TextButtonStyle tbs =
+                new com.badlogic.gdx.scenes.scene2d.ui.TextButton.TextButtonStyle();
+        tbs.up = skin.newDrawable("white", 0.2f, 0.2f, 0.2f, 1f);
+        tbs.down = skin.newDrawable("white", 0.1f, 0.1f, 0.1f, 1f);
+        tbs.checked = skin.newDrawable("white", 0.25f, 0.25f, 0.25f, 1f);
+        tbs.font = skin.getFont("default-font");
+        skin.add("default", tbs);
+
+        return skin;
     }
 }
