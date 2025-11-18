@@ -32,12 +32,14 @@ public class GameScreen implements Screen {
     private final LoopObstacle loopObstacle;
 
     private BitmapFont font;
+    private int currentLevel;
 
     // controle simples pra restart se quiser
     private boolean debugResetRequested = false;
 
-    public GameScreen(MyGame game) {
+    public GameScreen(MyGame game, int level) {
         this.game = game;
+        this.currentLevel = level;
         this.viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT);
         this.shapeRenderer = new ShapeRenderer();
 
@@ -48,12 +50,18 @@ public class GameScreen implements Screen {
                 100f, 100f // tamanho
         );
 
+        // LÓGICA DE DIFICULDADE PROGRESSIVA
+        // Nível 1: 250 velocidade necessária
+        // Nível 2: 300 velocidade necessária
+        // Nível 3: 350 velocidade necessária
+        float difficulty = 250f + ((level - 1) * 50f);
+
         // cria um loop a frente
         this.loopObstacle = new LoopObstacle(
                 700f, // centro X do círculo
                 120f, // base Y do círculo (onde o player entra)
                 280f, // raio
-                250f // velocidade mínima necessária pra atravessar
+                difficulty // velocidade mínima necessária pra atravessar
         );
     }
 
@@ -111,7 +119,20 @@ public class GameScreen implements Screen {
         font.draw(batch, "Fase: 1", 20, WORLD_HEIGHT - 50);
         
         if (player.getX() > 1000) { // Exemplo de fim de fase
-        font.draw(batch, "Fase Completa!", WORLD_WIDTH/2 - 100, WORLD_HEIGHT/2);
+
+            font.draw(batch, "FASE " + currentLevel + " COMPLETA!", WORLD_WIDTH/2 - 150, WORLD_HEIGHT/2 + 50);
+            font.draw(batch, "Pressione ENTER para continuar", WORLD_WIDTH/2 - 150, WORLD_HEIGHT/2);
+        
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
+                if (currentLevel < 3) {
+                    // Carrega a próxima fase (aumenta o nível)
+                    game.setScreen(new GameScreen(game, currentLevel + 1)); 
+                } else {
+                    // Se acabou a fase 3, volta para o Menu (zerou o jogo)
+                    game.setScreen(new MenuScreen(game));
+                }
+                dispose(); // Limpa a fase atual
+            }
         }
         
         batch.end();
@@ -157,5 +178,8 @@ public class GameScreen implements Screen {
     @Override
     public void dispose() {
         shapeRenderer.dispose();
+        if (batch != null) batch.dispose();
+        if (font != null) font.dispose();
+        if (backgroundTexture != null) backgroundTexture.dispose();
     }
 }

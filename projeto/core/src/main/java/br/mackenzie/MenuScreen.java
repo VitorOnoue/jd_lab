@@ -44,7 +44,7 @@ public class MenuScreen implements Screen {
         // Lógica de iniciar o jogo
         if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
             // Inicia a Fase 1
-            game.setScreen(new GameScreen(game));
+            game.setScreen(new GameScreen(game, 1));
             dispose(); // Limpa o menu da memória
         }
     }
