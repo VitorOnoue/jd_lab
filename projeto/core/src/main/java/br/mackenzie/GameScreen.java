@@ -21,7 +21,8 @@ import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.graphics.Pixmap;
 
 /**
- * Fase 1: player anda pra frente e pra trás, pega embalo e tenta atravessar o loop.
+ * Fase 1: player anda pra frente e pra trás, pega embalo e tenta atravessar o
+ * loop.
  * Agora com menu de pausa (Resume / Restart / Main Menu) e suporte a teclas.
  */
 public class GameScreen implements Screen {
@@ -37,7 +38,7 @@ public class GameScreen implements Screen {
     private final ShapeRenderer shapeRenderer;
 
     private final Player player;
-    private final LoopObstacle loopObstacle;
+    private final GapObstacle gapObstacle;
 
     private BitmapFont font;
     private int currentLevel;
@@ -47,30 +48,26 @@ public class GameScreen implements Screen {
     private Stage pauseStage;
     private Skin pauseSkin;
 
-    // controle simples pra restart se quiser
-    private boolean debugResetRequested = false;
-
     public GameScreen(MyGame game, int level) {
         this.game = game;
         this.currentLevel = level;
         this.viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT);
         this.shapeRenderer = new ShapeRenderer();
 
-        // cria o jogador
-        this.player = new Player(
-                150f, // posição inicial X
-                150f, // posição inicial Y (chão)
-                100f, 100f // tamanho
-        );
+        // calcula startX por level (exemplo simples)
+        float startX = 100f + level * 100f; // ajuste o multiplicador conforme desejar
+        float startY = 210f; // seu groundY
+
+        // cria o jogador com posição dependente do level
+        this.player = new Player(startX, startY, 100f, 100f);
 
         float difficulty = 250f + ((level - 1) * 100f);
 
-        this.loopObstacle = new LoopObstacle(
+        this.gapObstacle = new GapObstacle(
                 700f,
-                120f,
+                200f,
                 280f,
-                difficulty
-        );
+                difficulty);
     }
 
     @Override
@@ -104,32 +101,25 @@ public class GameScreen implements Screen {
         table.add(menuBtn).width(300).height(60).pad(8);
 
         resumeBtn.addListener(new ChangeListener() {
-            @Override public void changed(ChangeEvent event, Actor actor) {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
                 setPaused(false);
             }
         });
-        restartBtn.addListener(new ChangeListener() {
-            @Override public void changed(ChangeEvent event, Actor actor) {
-                restartLevel();
-            }
-        });
         menuBtn.addListener(new ChangeListener() {
-            @Override public void changed(ChangeEvent event, Actor actor) {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
                 goToMainMenu();
             }
         });
 
-        // inicialmente não recebe input do stage; só quando pausado chamamos setInputProcessor
+        // inicialmente não recebe input do stage; só quando pausado chamamos
+        // setInputProcessor
     }
 
     @Override
     public void render(float delta) {
         // --- INPUT GLOBAIS ---
-        if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
-            // tecla R reinicia a fase (rápida)
-            restartLevel();
-            return;
-        }
         if (Gdx.input.isKeyJustPressed(Input.Keys.P)) {
             // toggle pause
             setPaused(!paused);
@@ -148,15 +138,19 @@ public class GameScreen implements Screen {
         // --- UPDATE (apenas se não estiver pausado) ---
         if (!paused) {
             player.update(delta);
-            loopObstacle.checkAndResolve(player, delta);
+            gapObstacle.checkAndResolve(player, delta);
             player.clampX(0, WORLD_WIDTH);
 
-            if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
-                debugResetRequested = true;
+            if (player.getY() < 120f - 50f) { // 120f é seu groundY — ajuste se necessário
+                // troca para a tela de "Falhou" — passa currentLevel para reiniciar a mesma
+                // fase
+                game.setScreen(new FailScreen(game, currentLevel));
+                dispose(); // limpa recursos desta GameScreen
+                return; // garante que não desenhamos mais nada desta tela
             }
-            if (debugResetRequested) {
+
+            if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
                 resetStage();
-                debugResetRequested = false;
             }
         } else {
             // se pausado, atualiza o stage de pausa
@@ -173,12 +167,12 @@ public class GameScreen implements Screen {
         batch.setProjectionMatrix(viewport.getCamera().combined);
         batch.begin();
         batch.draw(backgroundTexture, 0f, 0f, viewport.getWorldWidth(), viewport.getWorldHeight());
-        loopObstacle.draw(batch);
+        gapObstacle.draw(batch);
         player.draw(batch);
 
         // desenho velocidade e fase
         font.draw(batch, "Velocidade Atual: " + player.getVelX(), 20, WORLD_HEIGHT - 20);
-        font.draw(batch, "Velocidade Necessária: " + loopObstacle.getRequiredSpeed(), 20, WORLD_HEIGHT - 50);
+        font.draw(batch, "Velocidade Necessária: " + gapObstacle.getRequiredSpeed(), 20, WORLD_HEIGHT - 50);
         font.draw(batch, "Fase: " + currentLevel, 20, WORLD_HEIGHT - 80);
 
         // desenho menu
@@ -186,8 +180,8 @@ public class GameScreen implements Screen {
 
         // Se terminou fase (exemplo)
         if (player.getX() > 1000) {
-            font.draw(batch, "FASE " + currentLevel + " COMPLETA!", WORLD_WIDTH/2 - 150, WORLD_HEIGHT/2 + 50);
-            font.draw(batch, "Pressione ENTER para continuar", WORLD_WIDTH/2 - 150, WORLD_HEIGHT/2);
+            font.draw(batch, "FASE " + currentLevel + " COMPLETA!", WORLD_WIDTH / 2 - 150, WORLD_HEIGHT / 2 + 50);
+            font.draw(batch, "Pressione ENTER para continuar", WORLD_WIDTH / 2 - 150, WORLD_HEIGHT / 2);
 
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
                 if (currentLevel < 3) {
@@ -241,25 +235,22 @@ public class GameScreen implements Screen {
         }
     }
 
-    private void restartLevel() {
-        // recria a tela atual para garantir limpeza total dos objetos
-        game.setScreen(new GameScreen(game, currentLevel));
-        dispose();
-    }
-
     private void goToMainMenu() {
         game.setScreen(new MenuScreen(game));
         dispose();
     }
 
     private void resetStage() {
-        player.reset(100f, 80f);
+        float x = 100f + currentLevel * 100f;
+        float y = 210f;
+        player.reset(x, y);
     }
 
     @Override
     public void resize(int width, int height) {
         viewport.update(width, height, true);
-        if (pauseStage != null) pauseStage.getViewport().update(width, height, true);
+        if (pauseStage != null)
+            pauseStage.getViewport().update(width, height, true);
     }
 
     @Override
@@ -274,16 +265,22 @@ public class GameScreen implements Screen {
     }
 
     @Override
-    public void hide() {}
+    public void hide() {
+    }
 
     @Override
     public void dispose() {
         shapeRenderer.dispose();
-        if (batch != null) batch.dispose();
-        if (font != null) font.dispose();
-        if (backgroundTexture != null) backgroundTexture.dispose();
-        if (pauseStage != null) pauseStage.dispose();
-        if (pauseSkin != null) pauseSkin.dispose();
+        if (batch != null)
+            batch.dispose();
+        if (font != null)
+            font.dispose();
+        if (backgroundTexture != null)
+            backgroundTexture.dispose();
+        if (pauseStage != null)
+            pauseStage.dispose();
+        if (pauseSkin != null)
+            pauseSkin.dispose();
     }
 
     private Skin createBasicSkin() {
@@ -298,8 +295,7 @@ public class GameScreen implements Screen {
         skin.add("white", new com.badlogic.gdx.graphics.Texture(pix));
         pix.dispose();
 
-        com.badlogic.gdx.scenes.scene2d.ui.TextButton.TextButtonStyle tbs =
-                new com.badlogic.gdx.scenes.scene2d.ui.TextButton.TextButtonStyle();
+        com.badlogic.gdx.scenes.scene2d.ui.TextButton.TextButtonStyle tbs = new com.badlogic.gdx.scenes.scene2d.ui.TextButton.TextButtonStyle();
         tbs.up = skin.newDrawable("white", 0.2f, 0.2f, 0.2f, 1f);
         tbs.down = skin.newDrawable("white", 0.1f, 0.1f, 0.1f, 1f);
         tbs.checked = skin.newDrawable("white", 0.25f, 0.25f, 0.25f, 1f);

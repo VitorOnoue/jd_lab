@@ -4,19 +4,12 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.math.MathUtils;
 
 public class Player extends GameObject {
 
     // física horizontal
     private float velX = 0f;
-    private float accel = 600f; // quão rápido acelera segurando a tecla
-    private float maxSpeed = 400f; // velocidade máxima que pode atingir
-    private float friction = 500f; // atrito quando não aperta nada
     private Texture texture;
-
-    // "chão" fixo
-    private final float groundY = 210f;
 
     public Player(float x, float y, float width, float height) {
         super(x, y, width, height);
