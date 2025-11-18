@@ -63,7 +63,7 @@ public class GameScreen implements Screen {
                 100f, 100f // tamanho
         );
 
-        float difficulty = 250f + ((level - 1) * 50f);
+        float difficulty = 250f + ((level - 1) * 100f);
 
         this.loopObstacle = new LoopObstacle(
                 700f,
@@ -176,9 +176,13 @@ public class GameScreen implements Screen {
         loopObstacle.draw(batch);
         player.draw(batch);
 
-        int speedDisplay = (int) Math.abs(player.getVelX() / 10);
-        font.draw(batch, "VELOCIDADE: " + speedDisplay + " km/h", 20, WORLD_HEIGHT - 20);
-        font.draw(batch, "Fase: " + currentLevel, 20, WORLD_HEIGHT - 50);
+        // desenho velocidade e fase
+        font.draw(batch, "Velocidade Atual: " + player.getVelX(), 20, WORLD_HEIGHT - 20);
+        font.draw(batch, "Velocidade Necessária: " + loopObstacle.getRequiredSpeed(), 20, WORLD_HEIGHT - 50);
+        font.draw(batch, "Fase: " + currentLevel, 20, WORLD_HEIGHT - 80);
+
+        // desenho menu
+        font.draw(batch, "Fase: " + currentLevel, 20, WORLD_HEIGHT - 80);
 
         // Se terminou fase (exemplo)
         if (player.getX() > 1000) {
