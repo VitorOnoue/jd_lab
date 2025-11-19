@@ -17,33 +17,28 @@ public class Player extends GameObject {
     }
 
     public void update(float dt) {
-    // CONFIGURAÇÃO DA BIKE
-    float pedalPower = 150f; // Quanto de velocidade ganha por "pedalada" (toque)
-    float friction = 200f;   // O quão rápido a bike para se não pedalar
-    float maxSpeed = 600f;   // Velocidade máxima permitida
+    float pedalPower = 150f; // quanto de velocidade ganha por pedalada
+    float friction = 200f;   // o quao rapido a bike para se nao pedalar
+    float maxSpeed = 600f;   // velocidade maxima permitida
 
-    // 1. DETECTAR PEDALADA (Trocar "isKeyPressed" por "isKeyJustPressed")
-    // Usamos SPACE ou SETA PRA CIMA para simular o pedal
+    // usamos SPACE ou UP para simular o pedal
     if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE) || Gdx.input.isKeyJustPressed(Input.Keys.UP)) {
         velX += pedalPower;
     }
 
-    // 2. APLICAR ATRITO CONSTANTE (A bike sempre quer parar)
+    // atrito
     if (velX > 0) {
         velX -= friction * dt;
-        if (velX < 0) velX = 0; // Não deixa ir para trás (negativo) sozinho
+        if (velX < 0) velX = 0; // impede vel negativa
     }
 
-    // 3. LIMITAR VELOCIDADE MÁXIMA
+    // limita velocidade
     if (velX > maxSpeed) {
         velX = maxSpeed;
     }
 
-    // 4. APLICAR MOVIMENTO
+    // atualiza posiçao
     x += velX * dt;
-
-    // 5. MANTER NO CHÃO
-    y = Math.max(y, 210f); // groundY fixo conforme seu código original
 
     updateBounds();
     }

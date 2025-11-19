@@ -22,7 +22,6 @@ public class MenuScreen implements Screen {
     private BitmapFont font;
     private Texture background;
 
-    // UI
     private Stage stage;
     private Skin skin;
 
@@ -38,7 +37,6 @@ public class MenuScreen implements Screen {
 
         background = new Texture(Gdx.files.internal("background.png"));
 
-        // Stage + Skin simples criado em código para não depender de arquivo externo
         stage = new Stage(new ScreenViewport());
         skin = createBasicSkin();
 
@@ -70,13 +68,12 @@ public class MenuScreen implements Screen {
             }
         });
 
-        // seta o stage como input processor
         Gdx.input.setInputProcessor(stage);
     }
 
     @Override
     public void render(float delta) {
-        // keyboard quick-start também
+        // start jogo por teclado
         if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
             game.setScreen(new GameScreen(game, 1));
             dispose();

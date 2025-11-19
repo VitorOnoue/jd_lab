@@ -15,7 +15,7 @@ public class MyGame extends Game {
 
     @Override
     public void render() {
-        super.render(); // delega para a tela atual
+        super.render();
     }
 
     @Override

@@ -39,7 +39,6 @@ public abstract class GameObject {
     }
 
     public void dispose() {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'dispose'");
     }
 }

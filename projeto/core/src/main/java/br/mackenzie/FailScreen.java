@@ -36,7 +36,6 @@ public class FailScreen implements Screen {
         font = new BitmapFont();
         font.getData().setScale(1.6f);
 
-        // opcional: reutiliza o mesmo background que você usa no menu/jogo
         try {
             background = new Texture(Gdx.files.internal("background.png"));
         } catch (Exception e) {

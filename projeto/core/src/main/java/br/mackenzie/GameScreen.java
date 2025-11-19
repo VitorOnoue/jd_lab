@@ -20,11 +20,6 @@ import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.graphics.Pixmap;
 
-/**
- * Fase 1: player anda pra frente e pra trás, pega embalo e tenta atravessar o
- * loop.
- * Agora com menu de pausa (Resume / Restart / Main Menu) e suporte a teclas.
- */
 public class GameScreen implements Screen {
 
     public static final float WORLD_WIDTH = 1280f;
@@ -43,7 +38,6 @@ public class GameScreen implements Screen {
     private BitmapFont font;
     private int currentLevel;
 
-    // pause
     private boolean paused = false;
     private Stage pauseStage;
     private Skin pauseSkin;
@@ -54,9 +48,8 @@ public class GameScreen implements Screen {
         this.viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT);
         this.shapeRenderer = new ShapeRenderer();
 
-        // calcula startX por level (exemplo simples)
-        float startX = 100f + level * 100f; // ajuste o multiplicador conforme desejar
-        float startY = 210f; // seu groundY
+        float startX = 100f + level * 100f;
+        float startY = 210f;
 
         // cria o jogador com posição dependente do level
         this.player = new Player(startX, startY, 100f, 100f);
@@ -81,7 +74,6 @@ public class GameScreen implements Screen {
 
         batch = new SpriteBatch();
 
-        // Cria a UI de pausa (Stage)
         pauseStage = new Stage(new FitViewport(WORLD_WIDTH, WORLD_HEIGHT));
         pauseSkin = createBasicSkin();
 
@@ -112,14 +104,10 @@ public class GameScreen implements Screen {
                 goToMainMenu();
             }
         });
-
-        // inicialmente não recebe input do stage; só quando pausado chamamos
-        // setInputProcessor
     }
 
     @Override
     public void render(float delta) {
-        // --- INPUT GLOBAIS ---
         if (Gdx.input.isKeyJustPressed(Input.Keys.P)) {
             // toggle pause
             setPaused(!paused);
@@ -130,34 +118,29 @@ public class GameScreen implements Screen {
             return;
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            // ESC volta ao menu também
             goToMainMenu();
             return;
         }
 
-        // --- UPDATE (apenas se não estiver pausado) ---
         if (!paused) {
             player.update(delta);
             gapObstacle.checkAndResolve(player, delta);
             player.clampX(0, WORLD_WIDTH);
 
-            if (player.getY() < 120f - 50f) { // 120f é seu groundY — ajuste se necessário
-                // troca para a tela de "Falhou" — passa currentLevel para reiniciar a mesma
-                // fase
+            if (player.getY() < 120f - 50f) { // caiu
+                // troca para a tela de "falhou"
                 game.setScreen(new FailScreen(game, currentLevel));
-                dispose(); // limpa recursos desta GameScreen
-                return; // garante que não desenhamos mais nada desta tela
+                dispose();
+                return; 
             }
 
             if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
                 resetStage();
             }
         } else {
-            // se pausado, atualiza o stage de pausa
             pauseStage.act(delta);
         }
 
-        // --- DESENHO ---
         Gdx.gl.glClearColor(0f, 0f, 0.1f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
@@ -170,15 +153,18 @@ public class GameScreen implements Screen {
         gapObstacle.draw(batch);
         player.draw(batch);
 
-        // desenho velocidade e fase
+        // desenho texto velocidade e fase
         font.draw(batch, "Velocidade Atual: " + player.getVelX(), 20, WORLD_HEIGHT - 20);
         font.draw(batch, "Velocidade Necessária: " + gapObstacle.getRequiredSpeed(), 20, WORLD_HEIGHT - 50);
         font.draw(batch, "Fase: " + currentLevel, 20, WORLD_HEIGHT - 80);
 
-        // desenho menu
+        // desenho texo menu
         font.draw(batch, "Fase: " + currentLevel, 20, WORLD_HEIGHT - 80);
 
-        // Se terminou fase (exemplo)
+        // desenho texto instruções
+        font.draw(batch, "P: Pausar | R: Reiniciar | M ou ESC: Menu Principal", 500, WORLD_HEIGHT - 20);
+
+        // desenho se terminou fase
         if (player.getX() > 1000) {
             font.draw(batch, "FASE " + currentLevel + " COMPLETA!", WORLD_WIDTH / 2 - 150, WORLD_HEIGHT / 2 + 50);
             font.draw(batch, "Pressione ENTER para continuar", WORLD_WIDTH / 2 - 150, WORLD_HEIGHT / 2);
@@ -198,7 +184,6 @@ public class GameScreen implements Screen {
 
         batch.end();
 
-        // 2) ShapeRenderer (overlays)
         shapeRenderer.setProjectionMatrix(viewport.getCamera().combined);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
         shapeRenderer.setColor(Color.WHITE);
@@ -208,9 +193,7 @@ public class GameScreen implements Screen {
                 player.getY() + player.getHeight() + 10);
         shapeRenderer.end();
 
-        // 3) Se pausado, desenha overlay escuro + stage de pause
         if (paused) {
-            // um retângulo semi-transparente manual
             Gdx.gl.glEnable(GL20.GL_BLEND);
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
             shapeRenderer.setColor(new Color(0f, 0f, 0f, 0.6f));
@@ -218,7 +201,6 @@ public class GameScreen implements Screen {
             shapeRenderer.end();
             Gdx.gl.glDisable(GL20.GL_BLEND);
 
-            // desenha o stage de pause por cima
             pauseStage.getViewport().apply();
             pauseStage.draw();
         }
@@ -227,10 +209,8 @@ public class GameScreen implements Screen {
     private void setPaused(boolean pause) {
         this.paused = pause;
         if (paused) {
-            // direciona input pro stage para permitir clicar nos botões
             Gdx.input.setInputProcessor(pauseStage);
         } else {
-            // volta a forma simples de input (keyboard polling)
             Gdx.input.setInputProcessor(null);
         }
     }
@@ -255,13 +235,11 @@ public class GameScreen implements Screen {
 
     @Override
     public void pause() {
-        // opcional: se o app perder foco, pausamos o jogo
         setPaused(true);
     }
 
     @Override
     public void resume() {
-        // não força retomada
     }
 
     @Override
